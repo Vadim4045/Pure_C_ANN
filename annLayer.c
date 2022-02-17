@@ -1,0 +1,140 @@
+#include "annLayer.h"
+
+double sigma(double, double);
+double sigmaPrime(double, double);
+
+annLayer* newLayer(int count, int position){
+    unsigned int i;
+
+    annLayer* newLayer = (annLayer*) malloc(sizeof(annLayer));
+    if (newLayer==NULL) {
+        return NULL;
+    }
+
+    newLayer->count = count;
+
+    newLayer->content = (double*) calloc(count, sizeof(double));
+    if(newLayer->content == NULL){
+        freeLayer(newLayer);
+        return NULL;
+    }
+
+    if(position>0){
+        newLayer->fallacy = (double*) calloc(count, sizeof(double));
+        if(newLayer->fallacy == NULL){
+            freeLayer(newLayer);
+            return NULL;
+        }
+    }else{
+        newLayer->fallacy = NULL;
+    }
+    
+
+    newLayer->next = NULL;
+    newLayer->weights = NULL;
+
+    return newLayer;
+}
+
+annLayer* layerMakeContinue(annLayer* layer, annLayer* nextLayer){
+    unsigned int i;
+
+    layer->next = nextLayer;
+
+    layer->weights = (double**) calloc(nextLayer->count, sizeof(double*));
+    if(layer->weights == NULL){
+        freeLayer(layer);
+        return NULL;
+    }
+
+    for(i=0;i<nextLayer->count;i++){
+        layer->weights[i] = (double*) calloc(layer->count, sizeof(double));
+        if(layer->weights[i]==NULL){
+            freeLayer(layer);
+            return NULL;
+        }
+    }
+
+    return layer;
+}
+
+void randomWeights(annLayer* layer){
+    unsigned int i, j;
+
+    srand(time(NULL));
+
+    for(i=0;i<layer->next->count;i++){
+        for(j=0;j<layer->count;j++){
+            layer->weights[i][j] = (((float)rand()/(float)RAND_MAX)-0.5)*0.1;
+        }
+    }
+}
+
+void layerFP(annLayer* layer, double alfa){
+    unsigned int i, j;
+
+    for(i=0;i<layer->next->count;i++){
+        layer->next->content[i]=0;
+        layer->next->fallacy[i] = 0;
+
+        for(j=0;j<layer->count;j++){
+            layer->next->content[i] += layer->content[j] * layer->weights[i][j];
+        }
+
+        layer->next->content[i] = sigma(layer->next->content[i], alfa);       
+    }
+}
+
+void layerBP(annLayer* layer, double alfa, double mu){
+    unsigned int i,j;
+    
+    for(i=0;i<layer->next->count;i++){
+        for(j=0;j<layer->count;j++){
+
+            if(layer->fallacy != NULL){
+                layer->fallacy[j] += layer->weights[i][j]*layer->next->fallacy[i];
+            }
+
+            layer->weights[i][j] += mu*layer->next->fallacy[i]*sigmaPrime(layer->next->content[i], alfa)*layer->content[j];
+        }
+    }
+}
+
+int freeLayer(annLayer* layer){
+    unsigned int i;
+
+    if(layer == NULL){
+        return 0;
+    }
+
+    if(layer->content != NULL){
+        free(layer->content);
+    }
+
+    if(layer->fallacy != NULL){
+        free(layer->fallacy);
+    }
+
+    if(layer->weights != NULL){
+        for(i=0;i<layer->next->count;i++){
+            if(layer->weights[i] != NULL){
+                free(layer->weights[i]);
+            }
+            
+        }
+
+        free(layer->weights);
+    }
+
+    free(layer);
+
+    return 1;
+}
+
+inline double sigma(double num, double alfa){
+    return num>0? alfa*num:0.01*num;//1.0/(1.0+exp(-alfa*num));
+}
+
+inline double sigmaPrime(double num, double alfa){
+    return num>0? alfa:0.01*alfa;//alfa*num*(1.0-alfa*num);
+}
