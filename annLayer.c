@@ -2,16 +2,19 @@
 
 double sigma(double, double);
 double sigmaPrime(double, double);
+void* fpThread(void*);
+void* bpThread(void*);
 
-annLayer* newLayer(int count, int position){
+annLayer* newLayer(int count, double alfa, int position){
     unsigned int i;
 
-    annLayer* newLayer = (annLayer*) malloc(sizeof(annLayer));
+    annLayer* newLayer = (annLayer*) calloc(1, sizeof(annLayer));
     if (newLayer==NULL) {
         return NULL;
     }
 
     newLayer->count = count;
+    newLayer->alfa=alfa;
 
     newLayer->content = (double*) calloc(count, sizeof(double));
     if(newLayer->content == NULL){
@@ -25,19 +28,14 @@ annLayer* newLayer(int count, int position){
             freeLayer(newLayer);
             return NULL;
         }
-    }else{
-        newLayer->fallacy = NULL;
     }
-    
-
-    newLayer->next = NULL;
-    newLayer->weights = NULL;
 
     return newLayer;
 }
 
 annLayer* layerMakeContinue(annLayer* layer, annLayer* nextLayer){
-    unsigned int i;
+
+    int i;
 
     layer->next = nextLayer;
 
@@ -70,8 +68,8 @@ void randomWeights(annLayer* layer){
     }
 }
 
-void layerFP(annLayer* layer, double alfa){
-    unsigned int i, j;
+void layerFP(annLayer* layer){
+    int i, j;
 
     for(i=0;i<layer->next->count;i++){
         layer->next->content[i]=0;
@@ -81,23 +79,23 @@ void layerFP(annLayer* layer, double alfa){
             layer->next->content[i] += layer->content[j] * layer->weights[i][j];
         }
 
-        layer->next->content[i] = sigma(layer->next->content[i], alfa);       
+        layer->next->content[i] = sigma(layer->next->content[i], layer->alfa);       
     }
 }
 
-void layerBP(annLayer* layer, double alfa, double mu){
+void layerBP(annLayer* layer, double mu){
     unsigned int i,j;
-    
+   
     for(i=0;i<layer->next->count;i++){
         for(j=0;j<layer->count;j++){
-
             if(layer->fallacy != NULL){
                 layer->fallacy[j] += layer->weights[i][j]*layer->next->fallacy[i];
             }
 
-            layer->weights[i][j] += mu*layer->next->fallacy[i]*sigmaPrime(layer->next->content[i], alfa)*layer->content[j];
+            layer->weights[i][j] += mu*layer->next->fallacy[i]*sigmaPrime(layer->next->content[i], layer->alfa)*layer->content[j];
         }
     }
+
 }
 
 int freeLayer(annLayer* layer){
@@ -132,7 +130,7 @@ int freeLayer(annLayer* layer){
 }
 
 inline double sigma(double num, double alfa){
-    return num>0? alfa*num:0.01*num;//1.0/(1.0+exp(-alfa*num));
+    return num>0? alfa*(num+1):0.01*(num+1);//1.0/(1.0+exp(-alfa*num));
 }
 
 inline double sigmaPrime(double num, double alfa){

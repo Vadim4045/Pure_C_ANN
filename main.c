@@ -1,7 +1,9 @@
 #ifndef _MAIN
 #define _MAIN
+
 #define BUFF_BIG 100
 #define BUFF_SMALL 50
+
 
 #include <stdio.h>
 #include <stdlib.h>

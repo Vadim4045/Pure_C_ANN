@@ -18,7 +18,6 @@ Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFileNa
 
     ann->configArr = config;
     ann->layersCount = count;
-    ann->alfa = alfa;
 
     ann->innerLayers = (annLayer**) calloc(count, sizeof(annLayer*));
     if(ann->innerLayers==NULL){
@@ -27,7 +26,7 @@ Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFileNa
     }
 
     for(i=0;i<count;i++){
-        ann->innerLayers[i] = newLayer(config[i], i);
+        ann->innerLayers[i] = newLayer(config[i], alfa, i);
 
         if(ann->innerLayers[i] != NULL && i>0){
 
@@ -57,7 +56,7 @@ int simpleAnnGo(Ann* ann, double* data, double* resArr){
     }   
 
     for(i=0;i<ann->layersCount-1;i++){
-        layerFP(ann->innerLayers[i], ann->alfa);
+        layerFP(ann->innerLayers[i]);
     }
 
     if(resArr != NULL){
@@ -113,7 +112,7 @@ void annBP(Ann* ann, double mu){
     int i;
     
     for(i=ann->layersCount-2;i>=0;i--){
-        layerBP(ann->innerLayers[i], ann->alfa, mu);
+        layerBP(ann->innerLayers[i], mu);
     }
 }
 
@@ -238,11 +237,16 @@ void exportStoredWeights(Ann* ann, int epoch, int dataSetLength, int good){
     unsigned int i, j, k;
     FILE *file;
     char buffer[100], confStr[32], tmp[5];
+    struct stat st = {0};
 
     strcpy(confStr, "_");
     for(i=0;i<ann->layersCount;i++){
         snprintf(tmp, sizeof(tmp), "%d_", ann->configArr[i]);
         strcat(confStr, tmp);
+    }
+
+    if (stat("./export", &st) == -1) {
+        mkdir("./export", 0700);
     }
 
     snprintf(buffer, sizeof(buffer), "./export/%.4d%s%.5d_%.5d.bin", epoch, confStr, dataSetLength, good);

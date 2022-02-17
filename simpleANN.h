@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <dirent.h>
 #include "annLayer.h"
 
@@ -13,7 +16,6 @@ typedef struct simpleANN
     int layersCount;
     int* configArr;
     annLayer** innerLayers;
-    double alfa;
     int epoch;
 } Ann;
 
