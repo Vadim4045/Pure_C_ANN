@@ -8,7 +8,7 @@ void exportStoredWeights(Ann*, int, int, int);
 int annResult(Ann*);
 void annBP(Ann*, double);
 
-Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFileName){
+Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFolder){
     unsigned int i;
 
     Ann* ann = (Ann*) calloc(1, sizeof(Ann));
@@ -18,6 +18,7 @@ Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFileNa
 
     ann->configArr = config;
     ann->layersCount = count;
+    ann->weights_folder = weightsFolder;
 
     ann->innerLayers = (annLayer**) calloc(count, sizeof(annLayer*));
     if(ann->innerLayers==NULL){
@@ -39,7 +40,7 @@ Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFileNa
         }
     }
 
-    if(importStoredWeights(ann, weightsFileName) == 0 && randomGenerateWeights(ann) == 0){
+    if(importStoredWeights(ann, weightsFolder) == 0 && randomGenerateWeights(ann) == 0){
         freeSimpleANN(ann);
         return NULL;
     }
@@ -51,9 +52,7 @@ int simpleAnnGo(Ann* ann, double* data, double* resArr){
     unsigned int i, j;
     double* nextLayer;
 
-    for(i=0;i<ann->configArr[0];i++){
-        ann->innerLayers[0]->content[i] = data[i];
-    }   
+    ann->innerLayers[0]->content = data; 
 
     for(i=0;i<ann->layersCount-1;i++){
         layerFP(ann->innerLayers[i]);
@@ -151,6 +150,7 @@ int importStoredWeights(Ann* ann, const char* directory){
     unsigned int i, j, k;
     FILE *file;
     char* weightsFileName;
+    size_t s;
 
     if(directory==NULL){
         directory="./";
@@ -166,7 +166,7 @@ int importStoredWeights(Ann* ann, const char* directory){
     for(i=0;i<ann->layersCount-1;i++){
         for(j=0;j<ann->innerLayers[i]->next->count;j++){
             for(k=0;k<ann->innerLayers[i]->count;k++){
-                fread(&ann->innerLayers[i]->weights[j][k], sizeof(double), 1, file);
+                s=fread(&ann->innerLayers[i]->weights[j][k], sizeof(double), 1, file);
             }
         }
     }
@@ -202,7 +202,7 @@ char* getLastWeightsFileName(Ann* ann, const char* directory){
     if (d) {
         while ((dir = readdir(d)) != NULL) {
             
-            if(strstr(dir->d_name, confStr) != NULL){
+            if(strstr(dir->d_name, confStr) != NULL && strstr(dir->d_name, ".bin") != NULL){
                 strcpy(tmp2,dir->d_name);
                 strcpy(tmp,strtok(tmp2, "_"));
 
@@ -245,11 +245,11 @@ void exportStoredWeights(Ann* ann, int epoch, int dataSetLength, int good){
         strcat(confStr, tmp);
     }
 
-    if (stat("./export", &st) == -1) {
-        mkdir("./export", 0700);
+    if (stat(ann->weights_folder, &st) == -1) {
+        mkdir(ann->weights_folder, 0700);
     }
 
-    snprintf(buffer, sizeof(buffer), "./export/%.4d%s%.5d_%.5d.bin", epoch, confStr, dataSetLength, good);
+    snprintf(buffer, sizeof(buffer), "%s%.4d%s%.5d_%.5d.bin", ann->weights_folder, epoch, confStr, dataSetLength, good);
 
     file = fopen(buffer,"wb+");
     if(file==NULL){
@@ -260,10 +260,29 @@ void exportStoredWeights(Ann* ann, int epoch, int dataSetLength, int good){
         for(j=0;j<ann->innerLayers[i]->next->count;j++){
             for(k=0;k<ann->innerLayers[i]->count;k++){
                 fwrite(&ann->innerLayers[i]->weights[j][k], sizeof(double), 1, file);
-                //fprintf(file, "%f, ", ann->innerLayers[i]->weights[j][k]);
             }
         }
     }
 
     fclose(file);
+
+    //return;
+
+    snprintf(buffer, sizeof(buffer), "%s%.4d%s%.5d_%.5d.txt", ann->weights_folder, epoch, confStr, dataSetLength, good);
+
+    file = fopen(buffer,"w+");
+    if(file==NULL){
+        return;
+    }
+
+    for(i=0;i<ann->layersCount-1;i++){
+        for(j=0;j<ann->innerLayers[i]->next->count;j++){
+            for(k=0;k<ann->innerLayers[i]->count;k++){
+                fprintf(file, "%f, ", ann->innerLayers[i]->weights[j][k]);
+            }
+        }
+    }
+
+    fclose(file);
+
 }

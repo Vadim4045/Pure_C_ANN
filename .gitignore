@@ -3,6 +3,7 @@
 data/*
 export/*
 trained_configurate/*
+alfa*/*
 
 # Prerequisites
 *.d

@@ -16,13 +16,13 @@ annLayer* newLayer(int count, double alfa, int position){
     newLayer->count = count;
     newLayer->alfa=alfa;
 
-    newLayer->content = (double*) calloc(count, sizeof(double));
-    if(newLayer->content == NULL){
-        freeLayer(newLayer);
-        return NULL;
-    }
-
     if(position>0){
+        newLayer->content = (double*) calloc(count, sizeof(double));
+        if(newLayer->content == NULL){
+            freeLayer(newLayer);
+            return NULL;
+        }
+
         newLayer->fallacy = (double*) calloc(count, sizeof(double));
         if(newLayer->fallacy == NULL){
             freeLayer(newLayer);
@@ -105,12 +105,9 @@ int freeLayer(annLayer* layer){
         return 0;
     }
 
-    if(layer->content != NULL){
-        free(layer->content);
-    }
-
     if(layer->fallacy != NULL){
         free(layer->fallacy);
+        free(layer->content);
     }
 
     if(layer->weights != NULL){

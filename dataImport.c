@@ -5,6 +5,7 @@ double** getData(const char* fileName, int* len){
     FILE *file;
 	double** res;
 	unsigned long fileLen;
+    size_t s;
 
 	file = fopen(fileName, "rb");
 	if (!file)
@@ -33,7 +34,7 @@ double** getData(const char* fileName, int* len){
         }
 
         for(j=0;j<*len;j++){
-            fread(&res[i][j], sizeof(double), 1, file);
+            s=fread(&res[i][j], sizeof(double), 1, file);
         }
     }
 	

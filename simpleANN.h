@@ -16,6 +16,7 @@ typedef struct simpleANN
     int layersCount;
     int* configArr;
     annLayer** innerLayers;
+    const char* weights_folder;
     int epoch;
 } Ann;
 
