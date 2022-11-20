@@ -1,19 +1,17 @@
-#Makefile command file for Simple ANN
+TARGET = simpleAnn
 
-ann: main.o ann.o layer.o data.o
-	gcc -O3 -g -o ann main.o ann.o layer.o data.o -lm
+CC := gcc
+CFLAGS := -g -Wall
 
-main.o: main.c
-	gcc -c main.c -o main.o
+SRCS := $(wildcard *.c)
+OBJS := $(SRCS:%.c=%.o)
+INC_DIRS := -I ./
+	
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ -lm
+	
+%.o: %.cpp $(INC_DIRS)
+	$(CC) $(CFLAGS) $@ -c $^ -lm
 
-ann.o: simpleANN.c
-	gcc -c simpleANN.c -o ann.o
-
-layer.o: annLayer.c
-	gcc -O3 -c annLayer.c -o layer.o
-
-data.o: dataImport.c
-	gcc -c dataImport.c -o data.o
-
-clean: 
-	rm -f *.o ann
+clean:
+	rm -rf *.o *.gch simpleAnn

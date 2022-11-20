@@ -1,133 +1,135 @@
 #include "simpleANN.h"
 
-
-int importStoredWeights(Ann*, const char*);
-char* getLastWeightsFileName(Ann*, const char*);
-int randomGenerateWeights(Ann* ann);
-void exportStoredWeights(Ann*, int, int, int);
-int annResult(Ann*);
-void annBP(Ann*, double);
-
-Ann* newSimpleANN(int count, int* config, double alfa, const char* weightsFolder){
+Ann* NewSimpleANN(int count, int* config, double alfa, const char* weightsFolder)
+{
     unsigned int i;
 
+    
     Ann* ann = (Ann*) calloc(1, sizeof(Ann));
-    if(ann==NULL){
+    if(ann==NULL)
+    {
         return NULL;
     }
 
+    ann->error = 0;
+    
     ann->configArr = config;
     ann->layersCount = count;
     ann->weights_folder = weightsFolder;
 
     ann->innerLayers = (annLayer**) calloc(count, sizeof(annLayer*));
-    if(ann->innerLayers==NULL){
-        freeSimpleANN(ann);
+    if(ann->innerLayers==NULL)
+    {
+        FreeSimpleANN(ann);
         return NULL;
     }
 
-    for(i=0;i<count;i++){
-        ann->innerLayers[i] = newLayer(config[i], alfa, i);
+    for(i = 0; i < count; ++i)
+    {
+        ann->innerLayers[i] = NewLayer(config[i], alfa, i);
 
-        if(ann->innerLayers[i] != NULL && i>0){
-
-            ann->innerLayers[i-1] = layerMakeContinue(ann->innerLayers[i-1], ann->innerLayers[i]);
-
-            if(ann->innerLayers[i-1] == NULL){
-                freeSimpleANN(ann);
+        if(ann->innerLayers[i] != NULL && i>0)
+        {
+            ann->innerLayers[i - 1] = LayerMakeContinue(ann->innerLayers[i - 1], ann->innerLayers[i]);
+            if (ann->innerLayers[i - 1] == NULL)
+            {
+                FreeSimpleANN(ann);
                 return NULL;
             }
         }
     }
 
-    if(importStoredWeights(ann, weightsFolder) == 0 && randomGenerateWeights(ann) == 0){
-        freeSimpleANN(ann);
-        return NULL;
-    }
+    if (!ImportStoredWeights(ann, weightsFolder))
+        RandomGenerateWeights(ann);
 
     return ann;
 }
+    
+int SimpleAnnGo(Ann* ann){
+    unsigned int i;
 
-int simpleAnnGo(Ann* ann, double* data, double* resArr){
-    unsigned int i, j;
-    double* nextLayer;
+    LayerFP(ann->innerLayers[0]);
+    
+    for(i = 1; i < ann->layersCount - 1; ++i)
+    {
+        Activate(ann->innerLayers[i]);
 
-    ann->innerLayers[0]->content = data; 
-
-    for(i=0;i<ann->layersCount-1;i++){
-        layerFP(ann->innerLayers[i]);
+        LayerFP(ann->innerLayers[i]);
     }
 
-    if(resArr != NULL){
-        for(i=0;i<ann->configArr[ann->layersCount-1];i++){
-            ann->innerLayers[ann->layersCount-1]->fallacy[i] = resArr[i];
-        }
-    }
+    SoftmaxActivate(ann->innerLayers[ann->layersCount - 1]);
 
-
-return annResult(ann);
+    return Result(ann->innerLayers[ann->layersCount - 1]);
 }
 
-int annResult(Ann* ann){
-    unsigned int i, idx;
-    double max=-100000;
+int SimpleAnnLearn(Ann* ann, int res, double mu)
+{
+    int answer;
+    unsigned int j;
+    unsigned int good = 0;
+    double error = 0;
+    double delta;
 
-    for(i=0;i<ann->configArr[ann->layersCount-1];i++){
-        if(ann->innerLayers[ann->layersCount-1]->content[i]>max){
-            max = ann->innerLayers[ann->layersCount-1]->content[i];
-            idx=i;
-        }
-    }
-
-    return idx;
-}
-
-int simpleAnnLearn(Ann* ann, double** data, int dataSetLength, double mu){
-    unsigned int i, j, tmp, good = 0;
-    
-    ann->epoch++;
-
-    for(i=0;i<dataSetLength;i++){
-        tmp = checkNumber(ann, data[i] + ann->configArr[0]);
-
-        if (tmp!=-1 && simpleAnnGo(ann, data[i], &data[i][ann->configArr[0]]) == tmp){
-            good++;
-        }
-
-        for(j=0;j<ann->configArr[ann->layersCount-1];j++){
-            ann->innerLayers[ann->layersCount-1]->fallacy[j] -= ann->innerLayers[ann->layersCount-1]->content[j];
-        }
-
-        annBP(ann, mu);     
-    }
+    answer = SimpleAnnGo(ann);
+    if (answer == res)
+        ++good;
 
     
-    exportStoredWeights(ann, ann->epoch, dataSetLength, good);
+    for (j = 0; j < ann->configArr[ann->layersCount - 1]; ++j)
+    {
+
+        if(j == res)
+        {
+            delta = 1 - ann->innerLayers[ann->layersCount - 1]->content[j];
+        }
+        else
+        {
+            delta = -ann->innerLayers[ann->layersCount - 1]->content[j];
+        }
+
+        error += delta * delta;
+        
+        ann->innerLayers[ann->layersCount - 1]->loss[j] = delta;
+    }
+    
+    for (j = 0; j < ann->configArr[ann->layersCount - 1]; ++j){
+        ann->innerLayers[ann->layersCount - 1]->loss[j] 
+            *= SoftDerivative(ann->innerLayers[ann->layersCount - 1] 
+            , ann->innerLayers[ann->layersCount - 1]->content[j]);
+    }
+
+    error /= ann->innerLayers[ann->layersCount - 1]->count;
+    
+    ann->error += error;
+    
+    AnnBP(ann, mu*error);
 
     return good;
 }
 
-void annBP(Ann* ann, double mu){
+void AnnBP(Ann* ann, double mu){
     int i;
+    double _mu = mu;
     
-    for(i=ann->layersCount-2;i>=0;i--){
-        layerBP(ann->innerLayers[i], mu);
+    for(i = ann->layersCount - 2; i >= 0; --i)
+    {
+        LayerBP(ann->innerLayers[i], _mu);
+        _mu *= 2;
     }
 }
 
-int checkNumber(Ann* ann, double* data){
+int CheckNumber(Ann* ann, double* data)
+{
     unsigned int i;
 
-    for(i=0;i<ann->configArr[ann->layersCount-1];i++){
-        if(data[i]==1){
+    for(i = 0; i < ann->configArr[ann->layersCount-1]; ++i)
+        if(data[i] == 1.0)
             return i;
-        }
-    }
 
     return -1;
 }
 
-int freeSimpleANN(Ann* ann){
+int FreeSimpleANN(Ann* ann){
     unsigned int i;
 
     if(ann==NULL){
@@ -136,7 +138,7 @@ int freeSimpleANN(Ann* ann){
 
     for(i=0;i<ann->layersCount;i++){
         if(ann->innerLayers[i] != NULL){
-            freeLayer(ann->innerLayers[i]);
+            FreeLayer(ann->innerLayers[i]);
         }
     }
 
@@ -146,27 +148,36 @@ int freeSimpleANN(Ann* ann){
     return 1;
 }
 
-int importStoredWeights(Ann* ann, const char* directory){
+int ImportStoredWeights(Ann* ann, const char* directory){
     unsigned int i, j, k;
     FILE *file;
     char* weightsFileName;
-    size_t s;
 
     if(directory==NULL){
         directory="./";
     }
 
-    weightsFileName = getLastWeightsFileName(ann, directory);
-
+    weightsFileName = GetLastWeightsFileName(ann, directory);
+ 
+    if(weightsFileName == NULL)
+    {
+        return 0;
+    }
+        
     file = fopen(weightsFileName,"rb");
-    if(file==NULL){
+
+    if(file == NULL){
+        free(weightsFileName);
         return 0;
     }
 
-    for(i=0;i<ann->layersCount-1;i++){
-        for(j=0;j<ann->innerLayers[i]->next->count;j++){
-            for(k=0;k<ann->innerLayers[i]->count;k++){
-                s=fread(&ann->innerLayers[i]->weights[j][k], sizeof(double), 1, file);
+    for(i=0;i<ann->layersCount-1;i++)
+    {
+        for(j=0;j<ann->innerLayers[i]->next->count;j++)
+        {
+            for (k = 0; k < ann->innerLayers[i]->count + 1; k++)
+            {
+                fread(&ann->innerLayers[i]->weights[j][k], sizeof(double), 1, file);
             }
         }
     }
@@ -180,11 +191,11 @@ int importStoredWeights(Ann* ann, const char* directory){
     return 1;
 }
 
-char* getLastWeightsFileName(Ann* ann, const char* directory){
+char* GetLastWeightsFileName(Ann* ann, const char* directory){
     int i, epoch=0;
     DIR *d;
     struct dirent *dir;
-    char confStr[32], tmp[5], tmp2[50], maxFile[50];
+    char confStr[32], tmp[7], tmp2[50], maxFile[50];
     char* weightsFileName;
 
     weightsFileName = (char*) calloc(50, sizeof(char));
@@ -193,15 +204,17 @@ char* getLastWeightsFileName(Ann* ann, const char* directory){
     strcpy(weightsFileName, directory);
 
     strcpy(confStr, "_");
-    for(i=0;i<ann->layersCount;i++){
+    for(i = 0; i < ann->layersCount; ++i){
         snprintf(tmp, sizeof(tmp), "%d_", ann->configArr[i]);
         strcat(confStr, tmp);
     }
 
     d = opendir(directory);
     if (d) {
+        maxFile[0] = '\0';
+
         while ((dir = readdir(d)) != NULL) {
-            
+
             if(strstr(dir->d_name, confStr) != NULL && strstr(dir->d_name, ".bin") != NULL){
                 strcpy(tmp2,dir->d_name);
                 strcpy(tmp,strtok(tmp2, "_"));
@@ -215,28 +228,36 @@ char* getLastWeightsFileName(Ann* ann, const char* directory){
         closedir(d);
     }
 
-    strcat(weightsFileName, maxFile);
+    if(maxFile[0] != '\0') {
+        strcat(weightsFileName, maxFile);
 
-    ann->epoch = epoch;
+        ann->epoch = epoch;
 
-    return weightsFileName;
+        return weightsFileName;
+    }
+
+
+    free(weightsFileName);
+
+    return NULL;
 }
 
-int randomGenerateWeights(Ann* ann){
-    unsigned int i;
+void RandomGenerateWeights(Ann* ann){
+    int i;
 
-    for(i=0;i<ann->layersCount-1;i++){
-        randomWeights(ann->innerLayers[i]);   
+    srand(time(NULL));
+    
+    for(i = 0; i < ann->layersCount - 1; ++i){
+        RandomWeights(ann->innerLayers[i]);   
     }
 
     printf("Random generated weights.\n");
-    return 1;
 }
 
-void exportStoredWeights(Ann* ann, int epoch, int dataSetLength, int good){
-    unsigned int i, j, k;
+void ExportStoredWeights(Ann* ann, int epoch, int dataSetLength, int good){
+    unsigned int i, j,k;
     FILE *file;
-    char buffer[100], confStr[32], tmp[5];
+    char buffer[100], confStr[32], tmp[7];
     struct stat st = {0};
 
     strcpy(confStr, "_");
@@ -249,40 +270,49 @@ void exportStoredWeights(Ann* ann, int epoch, int dataSetLength, int good){
         mkdir(ann->weights_folder, 0700);
     }
 
-    snprintf(buffer, sizeof(buffer), "%s%.4d%s%.5d_%.5d.bin", ann->weights_folder, epoch, confStr, dataSetLength, good);
+    snprintf(buffer, sizeof(buffer), "%s%.4d%s%.5d_%.5d.bin", ann->weights_folder, ann->epoch+epoch, confStr, dataSetLength, good);
 
     file = fopen(buffer,"wb+");
     if(file==NULL){
         return;
     }
 
-    for(i=0;i<ann->layersCount-1;i++){
-        for(j=0;j<ann->innerLayers[i]->next->count;j++){
-            for(k=0;k<ann->innerLayers[i]->count;k++){
+    for(i = 0; i < ann->layersCount - 1; ++i)
+    {
+        for(j = 0; j < ann->innerLayers[i]->next->count; ++j)
+        {
+            for (k = 0; k < ann->innerLayers[i]->count + 1; ++k)
+            {
                 fwrite(&ann->innerLayers[i]->weights[j][k], sizeof(double), 1, file);
             }
+                
         }
     }
 
     fclose(file);
 
-    //return;
+    // snprintf(buffer, sizeof(buffer), "%s%.4d%s%.5d_%.5d.txt", ann->weights_folder, ann->epoch+epoch, confStr, dataSetLength, good);
 
-    snprintf(buffer, sizeof(buffer), "%s%.4d%s%.5d_%.5d.txt", ann->weights_folder, epoch, confStr, dataSetLength, good);
+    // file = fopen(buffer,"w+");
+    // if(file==NULL){
+    //     return;
+    // }
 
-    file = fopen(buffer,"w+");
-    if(file==NULL){
-        return;
-    }
+    // for(i=0;i<ann->layersCount-1;i++){
+    //     for(j=0;j<ann->innerLayers[i]->next->count;j++){
+    //         for(k=0;k<ann->innerLayers[i]->count+1;k++){
+    //             fprintf(file, "%f, ", ann->innerLayers[i]->weights[j][k]);
+    //         }
+    //         fprintf(file, "\n");
+    //     }
+    //     fprintf(file, "\n");
+    // }
 
-    for(i=0;i<ann->layersCount-1;i++){
-        for(j=0;j<ann->innerLayers[i]->next->count;j++){
-            for(k=0;k<ann->innerLayers[i]->count;k++){
-                fprintf(file, "%f, ", ann->innerLayers[i]->weights[j][k]);
-            }
-        }
-    }
+    // fclose(file);
 
-    fclose(file);
+}
 
+void SetInput(Ann *ann, double *arr)
+{
+    SetInArr(ann->innerLayers[0], arr);
 }

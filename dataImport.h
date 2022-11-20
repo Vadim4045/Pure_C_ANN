@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-double** getData(const char*, int*);
-void freeDataMemory(double**, int);
+double** 	GetData				(const char*, int*);
+void 		FreeDataMemory		(double**, int);
 
 #endif //H_DATA_IMPORT

@@ -1,11 +1,10 @@
 #include "dataImport.h"
 
-double** getData(const char* fileName, int* len){
+double** GetData(const char* fileName, int* len){
     int i, j;
     FILE *file;
 	double** res;
 	unsigned long fileLen;
-    size_t s;
 
 	file = fopen(fileName, "rb");
 	if (!file)
@@ -26,15 +25,15 @@ double** getData(const char* fileName, int* len){
 		return NULL;
 	}
 
-    for(i=0;i<fileLen;i++){
-        res[i] = calloc(*len, sizeof(double));
+    for(i = 0; i < fileLen; ++i){
+        res[i] = (double*)calloc(*len, sizeof(double));
         if(!res[i]){
-            freeDataMemory(res, fileLen);
+            FreeDataMemory(res, fileLen);
             return NULL;
         }
 
-        for(j=0;j<*len;j++){
-            s=fread(&res[i][j], sizeof(double), 1, file);
+        for(j = 0; j < *len; ++j){
+            fread(&res[i][j], sizeof(double), 1, file);
         }
     }
 	
@@ -45,13 +44,13 @@ double** getData(const char* fileName, int* len){
     return res;
 }
 
-void freeDataMemory(double** data, int count){
+void FreeDataMemory(double** data, int count){
     int i;
     if(!data){
         return;
     }
 
-    for(i=0;i<count;i++){
+    for(i = 0; i < count; ++i){
         if(data[i]){
             free(data[i]);
         }
